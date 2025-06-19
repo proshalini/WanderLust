@@ -9,7 +9,8 @@ const methodOverride=require("method-override");
 const path = require("path"); // Add this at the top of your file
 const wrapAsync=require("./utils/wrapAsync.js");
 const ExpressError=require("./utils/ExpressError.js");
-const listingSchema=require("./schema.js");
+const Review=require("./models/review.js");
+const { listingSchema, reviewSchema } = require("./schema");
 
 app.use(methodOverride('_method'));
 app.set("views",path.join(__dirname,"/views"));
@@ -34,7 +35,20 @@ const validateListing=(req,res,next)=>{
     else{
         next();
     }
-}
+};
+
+const validateReview=(req,res,next)=>{
+    let{error}=reviewSchema.validate(req.body);
+    if(error){
+        console.log(error);
+        let errMsg=error.details.map((el)=>el.message).join(",");
+        throw new ExpressError(400,errMsg);
+    }
+    else{
+        next();
+    }
+};
+
 app.get("/",(req,res)=>{
     res.send("root working");
 })
@@ -50,7 +64,7 @@ app.get("/listings/new",wrapAsync(async (req,res)=>{
 //index route
 app.get("/listings/:id" ,wrapAsync(async (req,res)=>{
     let {id}=req.params;
-    const listing=await Listing.findById(id);
+    const listing=await Listing.findById(id).populate("reviews");
     res.render("./listings/show.ejs",{listing});
 }));
 //create route
@@ -84,6 +98,29 @@ app.delete("/listings/:id",wrapAsync(async (req,res)=>{
     res.redirect("/listings");
 }));
 
+//reviews route
+app.post("/listings/:id/reviews",validateReview,wrapAsync(async (req,res)=>{
+    console.log("🐾 Reached delete handler");
+    let listing=await Listing.findById(req.params.id);
+    let newRev=new Review(req.body.review);
+    listing.reviews.push(newRev);
+
+    await newRev.save();
+    await listing.save();
+    console.log("review saved");
+    res.redirect(`/listings/${listing._id}`);
+}));
+
+//review delete route
+app.delete("/listings/:id1/reviews/:id2",wrapAsync(async (req,res)=>{
+    let { id1: listingId, id2: reviewId } = req.params;
+    let delreview=await Review.findByIdAndDelete(reviewId);
+    let listing=await Listing.findByIdAndUpdate(listingId,{$pull: {reviews:reviewId}},{new:true});
+    console.log("deleted review", delreview)
+    console.log("updated listing reviews",listing);
+    res.redirect(`/listings/${listingId}`);
+}));
+
 app.use((req,res,next)=>{
     console.log("new error catched");
     next(new ExpressError(404,"Page not found"));
@@ -91,6 +128,7 @@ app.use((req,res,next)=>{
 
 
 app.use((err, req, res, next) => {
+    console.log(err);
     // Log full error stack
     let { status = 500, message = "An error occurred" } = err;
     res.status(status).render("./listings/error",{message});

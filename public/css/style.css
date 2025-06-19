@@ -92,6 +92,5 @@ body{
      border-color: white !important;
 }
 .btn-section{
- display: flex !important;
- justify-content: space-between;   
+ display: flex !important;  
 }
