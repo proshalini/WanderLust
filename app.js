@@ -2,15 +2,14 @@ const express=require("express");
 const app=express();
 exports.app=app;
 const mongoose=require("mongoose");
-const Listing=require("./models/listing");
 const ejsMate=require("ejs-mate");
 const mongo_url="mongodb://127.0.0.1:27017/wanderlust";
 const methodOverride=require("method-override");
 const path = require("path"); // Add this at the top of your file
-const wrapAsync=require("./utils/wrapAsync.js");
 const ExpressError=require("./utils/ExpressError.js");
-const Review=require("./models/review.js");
-const { listingSchema, reviewSchema } = require("./schema");
+
+const listings=require("./routes/listings.js");
+const reviews=require("./routes/review.js");
 
 app.use(methodOverride('_method'));
 app.set("views",path.join(__dirname,"/views"));
@@ -18,6 +17,7 @@ app.set("view engine",'ejs');
 app.use(express.urlencoded({extended:true}));
 app.engine('ejs',ejsMate);
 app.use(express.static(path.join(__dirname,"/public")));
+
 main()
 .then(()=>{console.log("connected to database")})
 .catch(err=>{console.log(err)});
@@ -25,101 +25,12 @@ async function main(){
     await mongoose.connect(mongo_url);
 }
 
-const validateListing=(req,res,next)=>{
-    let{error}=listingSchema.validate(req.body);
-    if(error){
-        console.log(error);
-        let errMsg=error.details.map((el)=>el.message).join(",");
-        throw new ExpressError(400,errMsg);
-    }
-    else{
-        next();
-    }
-};
-
-const validateReview=(req,res,next)=>{
-    let{error}=reviewSchema.validate(req.body);
-    if(error){
-        console.log(error);
-        let errMsg=error.details.map((el)=>el.message).join(",");
-        throw new ExpressError(400,errMsg);
-    }
-    else{
-        next();
-    }
-};
-
 app.get("/",(req,res)=>{
     res.send("root working");
 })
+app.use("/listings",listings);
+app.use("/listings/:id/reviews",reviews);
 
-app.get("/listings",wrapAsync(async (req,res)=>{
-    const allListings=await Listing.find({});
-    res.render("./listings/index.ejs",{allListings});
-}));
-//new route
-app.get("/listings/new",wrapAsync(async (req,res)=>{
-    res.render("./listings/new.ejs");
-}));
-//index route
-app.get("/listings/:id" ,wrapAsync(async (req,res)=>{
-    let {id}=req.params;
-    const listing=await Listing.findById(id).populate("reviews");
-    res.render("./listings/show.ejs",{listing});
-}));
-//create route
-app.post("/listings",validateListing,wrapAsync(async (req, res) => {
-    let newListing=new Listing(req.body.listing);
-    console.log(newListing);
-    await newListing.save();
-    res.redirect("/listings");
-}));
-
-//edit and update route
-app.get("/listings/:id/edit",wrapAsync(async (req,res)=>{
-    let {id}=req.params;
-    const listing=await Listing.findById(id);
-    res.render("./listings/edit.ejs",{listing});
-}));
-
-app.patch("/listings/:id",validateListing,wrapAsync(async (req,res)=>{
-    let {id}=req.params;
-    const updatedlist=req.body.listing;
-    await Listing.findByIdAndUpdate(id,updatedlist,{ new: true, runValidators: true });
-    console.log("updated content",updatedlist);
-    res.redirect("/listings");
-}));
-
-//delete route
-app.delete("/listings/:id",wrapAsync(async (req,res)=>{
-    let {id}=req.params;
-    const deletedlist=await Listing.findByIdAndDelete(id);
-    console.log("deleted content",deletedlist);
-    res.redirect("/listings");
-}));
-
-//reviews route
-app.post("/listings/:id/reviews",validateReview,wrapAsync(async (req,res)=>{
-    console.log("🐾 Reached delete handler");
-    let listing=await Listing.findById(req.params.id);
-    let newRev=new Review(req.body.review);
-    listing.reviews.push(newRev);
-
-    await newRev.save();
-    await listing.save();
-    console.log("review saved");
-    res.redirect(`/listings/${listing._id}`);
-}));
-
-//review delete route
-app.delete("/listings/:id1/reviews/:id2",wrapAsync(async (req,res)=>{
-    let { id1: listingId, id2: reviewId } = req.params;
-    let delreview=await Review.findByIdAndDelete(reviewId);
-    let listing=await Listing.findByIdAndUpdate(listingId,{$pull: {reviews:reviewId}},{new:true});
-    console.log("deleted review", delreview)
-    console.log("updated listing reviews",listing);
-    res.redirect(`/listings/${listingId}`);
-}));
 
 app.use((req,res,next)=>{
     console.log("new error catched");
