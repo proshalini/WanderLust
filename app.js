@@ -1,3 +1,6 @@
+if(process.env.NODE_ENV!="production"){
+    require("dotenv").config();
+};
 const express=require("express");
 const app=express();
 exports.app=app;
@@ -66,14 +69,6 @@ app.use("/listings",listingsRouter);
 app.use("/listings/:id/reviews",reviewsRouter);
 app.use("/",userRouter);
 
-// app.get("/demouser",async(req,res)=>{
-//     let fakeUser=new User({
-//         email:"demo@gmail.com",
-//         username:"demouser",
-//     });
-//     let registeredUser=await User.register(fakeUser,"fakepswd");
-//     res.send(registeredUser);
-// })
 app.use((req,res,next)=>{
     console.log("new error catched");
     next(new ExpressError(404,"Page not found"));
