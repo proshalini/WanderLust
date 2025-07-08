@@ -6,11 +6,16 @@ const app=express();
 exports.app=app;
 const mongoose=require("mongoose");
 const ejsMate=require("ejs-mate");
-const mongo_url="mongodb://127.0.0.1:27017/wanderlust";
+// const mongo_url="mongodb://127.0.0.1:27017/wanderlust";
+const atlasurl=process.env.ATLASDB_URL; 
+
+
 const methodOverride=require("method-override");
 const path = require("path"); // Add this at the top of your file
 const ExpressError=require("./utils/ExpressError.js");
 const session=require("express-session");
+const MongoStore = require('connect-mongo');
+
 const flash=require("connect-flash");
 const passport=require("passport");
 const LocalStrategy=require("passport-local");
@@ -27,8 +32,18 @@ app.use(express.urlencoded({extended:true}));
 app.engine('ejs',ejsMate);
 app.use(express.static(path.join(__dirname,"/public")));
 
+const store=MongoStore.create({
+    mongoUrl:atlasurl,
+    crypto:{
+        secret:process.env.SECRET,
+    },
+    touchAfter:24*3600,//not to save session info when only refreshed change only when mondified and update after 24 hrs
+
+})
+
 const sessionOptions={
-    secret:"mysupersecretcode",
+    store,
+    secret:process.env.SECRET,
     resave:false,
     saveUninitialized:true,
     cookie:{
@@ -42,12 +57,9 @@ main()
 .then(()=>{console.log("connected to database")})
 .catch(err=>{console.log(err)});
 async function main(){
-    await mongoose.connect(mongo_url);
+    await mongoose.connect(atlasurl);
 }
 
-app.get("/",(req,res)=>{
-    res.send("root working");
-})
 app.use(session(sessionOptions));
 app.use(flash());
 
@@ -82,8 +94,8 @@ app.use((err, req, res, next) => {
     res.status(status).render("./listings/error",{message});
 });
 
-app.listen(8080,()=>{
-    console.log("app is listening at port 8080");
+app.listen(3000,()=>{
+    console.log("app is listening at port 3000");
 })
 
 

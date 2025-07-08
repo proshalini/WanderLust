@@ -1,1 +1,2 @@
-classroom/
+.env
+node_modules/
