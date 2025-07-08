@@ -1,2 +1,3 @@
 ﻿# WanderLust
-https://wanderlust-axgq.onrender.com
+https://wanderlust-axgq.onrender.com/listings
+
